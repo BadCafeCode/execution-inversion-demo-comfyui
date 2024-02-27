@@ -1,7 +1,9 @@
 import re
 
 from comfy.graph_utils import GraphBuilder
+from .tools import VariantSupport
 
+@VariantSupport()
 class InversionDemoAdvancedPromptNode:
     def __init__(self):
         pass
@@ -87,6 +89,7 @@ class InversionDemoAdvancedPromptNode:
             "expand": graph.finalize(),
         }
 
+@VariantSupport()
 class InversionDemoFakeAdvancedPromptNode:
     def __init__(self):
         pass
@@ -111,6 +114,7 @@ class InversionDemoFakeAdvancedPromptNode:
         cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
         return (model, clip, [[cond, {"pooled_output": pooled}]])
 
+@VariantSupport()
 class InversionDemoLazySwitch:
     def __init__(self):
         pass
@@ -141,6 +145,7 @@ class InversionDemoLazySwitch:
         return (value,)
 
 NUM_IF_ELSE_NODES = 10
+@VariantSupport()
 class InversionDemoLazyConditional:
     def __init__(self):
         pass
@@ -195,6 +200,7 @@ class InversionDemoLazyConditional:
         return (kwargs.get("else", None),)
     
     
+@VariantSupport()
 class InversionDemoLazyIndexSwitch:
     def __init__(self):
         pass
@@ -233,6 +239,7 @@ class InversionDemoLazyIndexSwitch:
         key = "value%d" % index
         return (kwargs[key],)
 
+@VariantSupport()
 class InversionDemoLazyMixImages:
     def __init__(self):
         pass

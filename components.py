@@ -4,6 +4,7 @@ import folder_paths
 import json
 import copy
 import comfy.graph_utils
+from .tools import VariantSupport
 
 comfy_path = os.path.dirname(folder_paths.__file__)
 js_path = os.path.join(comfy_path, "web", "extensions")
@@ -17,6 +18,7 @@ def setup_js():
     js_src_path = os.path.join(inversion_demo_path, "js", "inversion-demo-components.js")
     shutil.copy(js_src_path, js_dest_path)
 
+@VariantSupport()
 class ComponentInput:
     def __init__(self):
         pass
@@ -44,6 +46,7 @@ class ComponentInput:
     def component_input(self, name, data_type, extra_args, explicit_input_order, optional, default_value = None):
         return (default_value,)
 
+@VariantSupport()
 class ComponentOutput:
     def __init__(self):
         pass
@@ -67,6 +70,7 @@ class ComponentOutput:
     def component_output(self, index, data_type, name, value):
         return (value,)
 
+@VariantSupport()
 class ComponentMetadata:
     def __init__(self):
         pass

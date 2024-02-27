@@ -1,6 +1,8 @@
 import re
 import torch
+from .tools import VariantSupport
 
+@VariantSupport()
 class IntConditions:
     def __init__(self):
         pass
@@ -35,6 +37,7 @@ class IntConditions:
             return (a >= b,)
 
 
+@VariantSupport()
 class FloatConditions:
     def __init__(self):
         pass
@@ -68,6 +71,7 @@ class FloatConditions:
         elif operation == ">=":
             return (a >= b,)
 
+@VariantSupport()
 class StringConditions:
     def __init__(self):
         pass
@@ -109,6 +113,7 @@ class StringConditions:
         elif operation == "a ENDSWITH b":
             return (a.endswith(b),)
 
+@VariantSupport()
 class ToBoolNode:
     def __init__(self):
         pass
@@ -147,6 +152,7 @@ class ToBoolNode:
 
         return (result,)
 
+@VariantSupport()
 class BoolOperationNode:
     def __init__(self):
         pass

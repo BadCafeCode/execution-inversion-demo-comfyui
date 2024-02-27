@@ -1,6 +1,8 @@
 from comfy.graph_utils import GraphBuilder
 import torch
+from .tools import VariantSupport
 
+@VariantSupport()
 class AccumulateNode:
     def __init__(self):
         pass
@@ -28,6 +30,7 @@ class AccumulateNode:
             value = accumulation["accum"] + [to_add]
         return ({"accum": value},)
 
+@VariantSupport()
 class AccumulationHeadNode:
     def __init__(self):
         pass
@@ -52,6 +55,7 @@ class AccumulationHeadNode:
         else:
             return ({"accum": accum[1:]}, accum[0])
 
+@VariantSupport()
 class AccumulationTailNode:
     def __init__(self):
         pass
@@ -76,6 +80,7 @@ class AccumulationTailNode:
         else:
             return ({"accum": accum[:-1]}, accum[-1])
 
+@VariantSupport()
 class AccumulationToListNode:
     def __init__(self):
         pass
@@ -98,6 +103,7 @@ class AccumulationToListNode:
     def accumulation_to_list(self, accumulation):
         return (accumulation["accum"],)
 
+@VariantSupport()
 class ListToAccumulationNode:
     def __init__(self):
         pass
@@ -120,6 +126,7 @@ class ListToAccumulationNode:
     def list_to_accumulation(self, list):
         return ({"accum": list},)
 
+@VariantSupport()
 class AccumulationGetLengthNode:
     def __init__(self):
         pass
@@ -141,6 +148,7 @@ class AccumulationGetLengthNode:
     def accumlength(self, accumulation):
         return (len(accumulation['accum']),)
         
+@VariantSupport()
 class AccumulationGetItemNode:
     def __init__(self):
         pass
@@ -163,6 +171,7 @@ class AccumulationGetItemNode:
     def get_item(self, accumulation, index):
         return (accumulation['accum'][index],)
         
+@VariantSupport()
 class AccumulationSetItemNode:
     def __init__(self):
         pass
@@ -188,6 +197,7 @@ class AccumulationSetItemNode:
         new_accum[index] = value
         return ({"accum": new_accum},)
 
+@VariantSupport()
 class IntMathOperation:
     def __init__(self):
         pass
@@ -223,6 +233,7 @@ class IntMathOperation:
 
 
 from .flow_control import NUM_FLOW_SOCKETS
+@VariantSupport()
 class ForLoopOpen:
     def __init__(self):
         pass
@@ -258,6 +269,7 @@ class ForLoopOpen:
             "expand": graph.finalize(),
         }
 
+@VariantSupport()
 class ForLoopClose:
     def __init__(self):
         pass
@@ -267,7 +279,6 @@ class ForLoopClose:
         return {
             "required": {
                 "flow_control": ("FLOW_CONTROL", {"rawLink": True}),
-                "old_remaining": ("INT", {"default": 1, "min": 0, "max": 100000, "step": 1, "forceInput": True}),
             },
             "optional": {
                 "initial_value%d" % i: ("*",{"rawLink": True}) for i in range(1, NUM_FLOW_SOCKETS)
@@ -280,7 +291,7 @@ class ForLoopClose:
 
     CATEGORY = "InversionDemo Nodes/Flow"
 
-    def for_loop_close(self, flow_control, old_remaining, **kwargs):
+    def for_loop_close(self, flow_control, **kwargs):
         graph = GraphBuilder()
         while_open = flow_control[0]
         # TODO - Requires WAS-ns. Will definitely want to solve before merging
@@ -297,6 +308,7 @@ class ForLoopClose:
             "expand": graph.finalize(),
         }
 
+@VariantSupport()
 class DebugPrint:
     def __init__(self):
         pass
@@ -346,6 +358,7 @@ class DebugPrint:
         return (value,)
 
 NUM_LIST_SOCKETS = 10
+@VariantSupport()
 class MakeListNode:
     def __init__(self):
         pass
