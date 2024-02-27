@@ -123,7 +123,7 @@ def default_extra_data(data_type, extra_args):
 
 def LoadComponent(component_file):
     try:
-        with open(component_file, "r") as f:
+        with open(component_file, "r", encoding="utf-8") as f:
             component_data = f.read()
             graph = json.loads(component_data)["output"]
 
