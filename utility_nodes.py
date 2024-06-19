@@ -1,4 +1,4 @@
-from comfy.graph_utils import GraphBuilder
+from comfy.graph_utils import GraphBuilder, is_link
 import torch
 from .tools import VariantSupport
 
@@ -387,6 +387,67 @@ class MakeListNode:
                 result.append(kwargs["value%d" % i])
         return (result,)
 
+@VariantSupport()
+class PortalInputNode:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "value": ("*",),
+                "name": ("STRING", {"multiline": False}),
+            },
+        }
+
+    RETURN_TYPES = ("*",)
+    FUNCTION = "portal_input"
+
+    CATEGORY = "InversionDemo Nodes/Portals"
+
+    def portal_input(self, value):
+        return (value,)
+
+@VariantSupport()
+class PortalOutputNode:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "name": ("STRING", {"multiline": False}),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+            }
+        }
+
+    RETURN_TYPES = ("*",)
+    FUNCTION = "portal_output"
+
+    CATEGORY = "InversionDemo Nodes/Portals"
+
+    def IS_CHANGED(self, name, prompt):
+        # You might be able to do something here, but it will mean relying on details
+        # of the implementation that aren't meant to be public and may change.
+        return float("NaN")
+
+    def portal_output(self, name, prompt):
+        for input in prompt.values():
+            if input["class_type"] == "PortalInputNode" and input["inputs"]["name"] == name:
+                link = input["inputs"]["value"]
+                assert is_link(link)
+                g = GraphBuilder()
+                return {
+                    "result": (link,),
+                    "expand": g.finalize(),
+                }
+
+        raise ValueError("No matching portal input found for name '%s'" % name)
+
 UTILITY_NODE_CLASS_MAPPINGS = {
     "AccumulateNode": AccumulateNode,
     "AccumulationHeadNode": AccumulationHeadNode,
@@ -401,6 +462,8 @@ UTILITY_NODE_CLASS_MAPPINGS = {
     "IntMathOperation": IntMathOperation,
     "DebugPrint": DebugPrint,
     "MakeListNode": MakeListNode,
+    "PortalInputNode": PortalInputNode,
+    "PortalOutputNode": PortalOutputNode,
 }
 UTILITY_NODE_DISPLAY_NAME_MAPPINGS = {
     "AccumulateNode": "Accumulate",
@@ -416,4 +479,6 @@ UTILITY_NODE_DISPLAY_NAME_MAPPINGS = {
     "IntMathOperation": "Int Math Operation",
     "DebugPrint": "Debug Print",
     "MakeListNode": "Make List",
+    "PortalInputNode": "Portal Input",
+    "PortalOutputNode": "Portal Output",
 }
