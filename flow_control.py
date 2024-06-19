@@ -1,7 +1,9 @@
 from comfy.graph_utils import GraphBuilder, is_link
 from comfy.graph import ExecutionBlocker
+from .tools import VariantSupport
 
 NUM_FLOW_SOCKETS = 5
+@VariantSupport()
 class WhileLoopOpen:
     def __init__(self):
         pass
@@ -31,6 +33,7 @@ class WhileLoopOpen:
             values.append(kwargs.get("initial_value%d" % i, None))
         return tuple(["stub"] + values)
 
+@VariantSupport()
 class WhileLoopClose:
     def __init__(self):
         pass
@@ -127,6 +130,7 @@ class WhileLoopClose:
             "expand": graph.finalize(),
         }
 
+@VariantSupport()
 class ExecutionBlockerNode:
     def __init__(self):
         pass
