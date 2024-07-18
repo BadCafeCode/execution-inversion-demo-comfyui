@@ -232,7 +232,7 @@ class InversionDemoLazyIndexSwitch:
 
     def check_lazy_status(self, index, **kwargs):
         key = "value%d" % index
-        if key not in kwargs:
+        if kwargs.get(key, None) is None:
             return [key]
 
     def index_switch(self, index, **kwargs):
