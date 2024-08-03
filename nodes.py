@@ -90,31 +90,6 @@ class InversionDemoAdvancedPromptNode:
         }
 
 @VariantSupport()
-class InversionDemoFakeAdvancedPromptNode:
-    def __init__(self):
-        pass
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "clip": ("CLIP",),
-                "model": ("MODEL",),
-            },
-        }
-
-    RETURN_TYPES = ("MODEL", "CLIP", "CONDITIONING")
-    FUNCTION = "advanced_prompt"
-
-    CATEGORY = "InversionDemo Nodes/Debug"
-
-    def advanced_prompt(self, prompt, clip, model):
-        tokens = clip.tokenize(prompt)
-        cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
-        return (model, clip, [[cond, {"pooled_output": pooled}]])
-
-@VariantSupport()
 class InversionDemoLazySwitch:
     def __init__(self):
         pass
@@ -289,7 +264,6 @@ class InversionDemoLazyMixImages:
 
 GENERAL_NODE_CLASS_MAPPINGS = {
     "InversionDemoAdvancedPromptNode": InversionDemoAdvancedPromptNode,
-    "InversionDemoFakeAdvancedPromptNode": InversionDemoFakeAdvancedPromptNode,
     "InversionDemoLazySwitch": InversionDemoLazySwitch,
     "InversionDemoLazyIndexSwitch": InversionDemoLazyIndexSwitch,
     "InversionDemoLazyMixImages": InversionDemoLazyMixImages,
@@ -298,7 +272,6 @@ GENERAL_NODE_CLASS_MAPPINGS = {
 
 GENERAL_NODE_DISPLAY_NAME_MAPPINGS = {
     "InversionDemoAdvancedPromptNode": "Advanced Prompt",
-    "InversionDemoFakeAdvancedPromptNode": "Fake Advanced Prompt",
     "InversionDemoLazySwitch": "Lazy Switch",
     "InversionDemoLazyIndexSwitch": "Lazy Index Switch",
     "InversionDemoLazyMixImages": "Lazy Mix Images",
