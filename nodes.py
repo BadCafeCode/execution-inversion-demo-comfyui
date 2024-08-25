@@ -2,6 +2,7 @@ import re
 
 from comfy_execution.graph_utils import GraphBuilder
 from .tools import VariantSupport
+from comfy_execution.node_utils import TemplateTypeSupport
 
 @VariantSupport()
 class InversionDemoAdvancedPromptNode:
@@ -89,7 +90,7 @@ class InversionDemoAdvancedPromptNode:
             "expand": graph.finalize(),
         }
 
-@VariantSupport()
+@TemplateTypeSupport()
 class InversionDemoLazySwitch:
     def __init__(self):
         pass
@@ -99,12 +100,13 @@ class InversionDemoLazySwitch:
         return {
             "required": {
                 "switch": ("BOOLEAN",),
-                "on_false": ("*", {"lazy": True}),
-                "on_true": ("*", {"lazy": True}),
+                "on_false": ("<T>", {"lazy": True}),
+                "on_true": ("<T>", {"lazy": True}),
             },
         }
 
-    RETURN_TYPES = ("*",)
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("result",)
     FUNCTION = "switch"
 
     CATEGORY = "InversionDemo Nodes/Logic"
@@ -119,37 +121,35 @@ class InversionDemoLazySwitch:
         value = on_true if switch else on_false
         return (value,)
 
-NUM_IF_ELSE_NODES = 10
-@VariantSupport()
+@TemplateTypeSupport()
 class InversionDemoLazyConditional:
     def __init__(self):
         pass
 
     @classmethod
     def INPUT_TYPES(cls):
-        args = {
-            "value1": ("*", {"lazy": True}),
-            "condition1": ("BOOLEAN", {"forceInput": True}),
-        }
-
-        for i in range(1,NUM_IF_ELSE_NODES):
-            args["value%d" % (i + 1)] = ("*", {"lazy": True})
-            args["condition%d" % (i + 1)] = ("BOOLEAN", {"lazy": True, "forceInput": True})
-
-        args["else"] = ("*", {"lazy": True})
-
         return {
             "required": {},
-            "optional": args,
+            "optional": {
+                "value#COUNT": ("<T>", {"lazy": True}),
+                "condition#COUNT": ("BOOLEAN", {}),
+                "else": ("<T>", {"lazy": True, "displayOrder": 999999})
+            },
+            "hidden": {
+                "node_def": "NODE_DEFINITION",
+            },
         }
 
-    RETURN_TYPES = ("*",)
+
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("result",)
     FUNCTION = "conditional"
 
     CATEGORY = "InversionDemo Nodes/Logic"
 
-    def check_lazy_status(self, **kwargs):
-        for i in range(0,NUM_IF_ELSE_NODES):
+    def check_lazy_status(self, node_def, **kwargs):
+        num_slots = node_def.get("dynamic_counts", {}).get("COUNT", 0)
+        for i in range(0, num_slots):
             cond = "condition%d" % (i + 1)
             if cond not in kwargs:
                 return [cond]
@@ -163,8 +163,9 @@ class InversionDemoLazyConditional:
         if "else" not in kwargs:
             return ["else"]
 
-    def conditional(self, **kwargs):
-        for i in range(0,NUM_IF_ELSE_NODES):
+    def conditional(self, node_def, **kwargs):
+        num_slots = node_def.get("dynamic_counts", {}).get("COUNT", 0)
+        for i in range(0, num_slots):
             cond = "condition%d" % (i + 1)
             if cond not in kwargs:
                 return [cond]
@@ -175,7 +176,7 @@ class InversionDemoLazyConditional:
         return (kwargs.get("else", None),)
     
     
-@VariantSupport()
+@TemplateTypeSupport()
 class InversionDemoLazyIndexSwitch:
     def __init__(self):
         pass
@@ -184,23 +185,15 @@ class InversionDemoLazyIndexSwitch:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "index": ("INT", {"default": 0, "min": 0, "max": 9, "step": 1}),
-                "value0": ("*", {"lazy": True}),
+                "index": ("INT", {"default": 0, "min": 0, "max": 99999, "step": 1}),
             },
             "optional": {
-                "value1": ("*", {"lazy": True}),
-                "value2": ("*", {"lazy": True}),
-                "value3": ("*", {"lazy": True}),
-                "value4": ("*", {"lazy": True}),
-                "value5": ("*", {"lazy": True}),
-                "value6": ("*", {"lazy": True}),
-                "value7": ("*", {"lazy": True}),
-                "value8": ("*", {"lazy": True}),
-                "value9": ("*", {"lazy": True}),
+                "value#COUNT": ("<T>", {"lazy": True}),
             }
         }
 
-    RETURN_TYPES = ("*",)
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("result",)
     FUNCTION = "index_switch"
 
     CATEGORY = "InversionDemo Nodes/Logic"
@@ -214,7 +207,6 @@ class InversionDemoLazyIndexSwitch:
         key = "value%d" % index
         return (kwargs[key],)
 
-@VariantSupport()
 class InversionDemoLazyMixImages:
     def __init__(self):
         pass

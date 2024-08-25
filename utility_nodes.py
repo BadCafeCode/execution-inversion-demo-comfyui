@@ -1,8 +1,9 @@
 from comfy_execution.graph_utils import GraphBuilder
 import torch
 from .tools import VariantSupport
+from comfy_execution.node_utils import TemplateTypeSupport
 
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulateNode:
     def __init__(self):
         pass
@@ -11,14 +12,15 @@ class AccumulateNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "to_add": ("*",),
+                "to_add": ("<T>", {}),
             },
             "optional": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {}),
             },
         }
 
-    RETURN_TYPES = ("ACCUMULATION",)
+    RETURN_TYPES = ("ACCUMULATION<T>",)
+    RETURN_NAMES = ("accumulation",)
     FUNCTION = "accumulate"
 
     CATEGORY = "InversionDemo Nodes/Lists"
@@ -30,7 +32,7 @@ class AccumulateNode:
             value = accumulation["accum"] + [to_add]
         return ({"accum": value},)
 
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationHeadNode:
     def __init__(self):
         pass
@@ -39,11 +41,12 @@ class AccumulationHeadNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {}),
             },
         }
 
-    RETURN_TYPES = ("ACCUMULATION", "*",)
+    RETURN_TYPES = ("ACCUMULATION<T>", "<T>",)
+    RETURN_NAMES = ("accumulation", "head")
     FUNCTION = "accumulation_head"
 
     CATEGORY = "InversionDemo Nodes/Lists"
@@ -55,7 +58,7 @@ class AccumulationHeadNode:
         else:
             return ({"accum": accum[1:]}, accum[0])
 
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationTailNode:
     def __init__(self):
         pass
@@ -64,11 +67,12 @@ class AccumulationTailNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {}),
             },
         }
 
-    RETURN_TYPES = ("ACCUMULATION", "*",)
+    RETURN_TYPES = ("ACCUMULATION<T>", "<T>",)
+    RETURN_NAMES = ("accumulation", "tail")
     FUNCTION = "accumulation_tail"
 
     CATEGORY = "InversionDemo Nodes/Lists"
@@ -80,7 +84,7 @@ class AccumulationTailNode:
         else:
             return ({"accum": accum[:-1]}, accum[-1])
 
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationToListNode:
     def __init__(self):
         pass
@@ -89,11 +93,12 @@ class AccumulationToListNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {}),
             },
         }
 
-    RETURN_TYPES = ("*",)
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("list",)
     OUTPUT_IS_LIST = (True,)
 
     FUNCTION = "accumulation_to_list"
@@ -103,7 +108,7 @@ class AccumulationToListNode:
     def accumulation_to_list(self, accumulation):
         return (accumulation["accum"],)
 
-@VariantSupport()
+@TemplateTypeSupport()
 class ListToAccumulationNode:
     def __init__(self):
         pass
@@ -112,11 +117,12 @@ class ListToAccumulationNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "list": ("*",),
+                "list": ("<T>", {}),
             },
         }
 
-    RETURN_TYPES = ("ACCUMULATION",)
+    RETURN_TYPES = ("ACCUMULATION<T>",)
+    RETURN_NAMES = ("accumulation",)
     INPUT_IS_LIST = (True,)
 
     FUNCTION = "list_to_accumulation"
@@ -126,7 +132,7 @@ class ListToAccumulationNode:
     def list_to_accumulation(self, list):
         return ({"accum": list},)
 
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationGetLengthNode:
     def __init__(self):
         pass
@@ -135,11 +141,12 @@ class AccumulationGetLengthNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {}),
             },
         }
 
     RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("length",)
 
     FUNCTION = "accumlength"
 
@@ -148,7 +155,7 @@ class AccumulationGetLengthNode:
     def accumlength(self, accumulation):
         return (len(accumulation['accum']),)
         
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationGetItemNode:
     def __init__(self):
         pass
@@ -157,12 +164,13 @@ class AccumulationGetItemNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {}),
                 "index": ("INT", {"default":0, "step":1})
             },
         }
 
-    RETURN_TYPES = ("*",)
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("item",)
 
     FUNCTION = "get_item"
 
@@ -171,7 +179,7 @@ class AccumulationGetItemNode:
     def get_item(self, accumulation, index):
         return (accumulation['accum'][index],)
         
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationSetItemNode:
     def __init__(self):
         pass
@@ -180,13 +188,14 @@ class AccumulationSetItemNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {}),
                 "index": ("INT", {"default":0, "step":1}),
-                "value": ("*",),
+                "value": ("<T>", {}),
             },
         }
 
-    RETURN_TYPES = ("ACCUMULATION",)
+    RETURN_TYPES = ("ACCUMULATION<T>",)
+    RETURN_NAMES = ("accumulation",)
 
     FUNCTION = "set_item"
 
@@ -232,11 +241,22 @@ class IntMathOperation:
             return (a ** b,)
 
 
-from .flow_control import NUM_FLOW_SOCKETS
+from .flow_control import NUM_FLOW_SOCKETS, VariadicFlowNode
 @VariantSupport()
-class ForLoopOpen:
+class ForLoopOpen(VariadicFlowNode):
     def __init__(self):
         pass
+
+    @classmethod
+    def resolve_dynamic_types(cls, input_types, output_types, entangled_types):
+        return cls.resolve_dynamic_flow_types(
+            ['FLOW_CONTROL', 'INT'],
+            ['flow_control', 'remaining'],
+            1,
+            input_types,
+            output_types,
+            entangled_types,
+        )
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -245,44 +265,67 @@ class ForLoopOpen:
                 "remaining": ("INT", {"default": 1, "min": 0, "max": 100000, "step": 1}),
             },
             "optional": {
-                "initial_value%d" % i: ("*",) for i in range(1, NUM_FLOW_SOCKETS)
+                "initial_value1": ("*",{
+                    "forceInput": True,
+                    "rawLink": True,
+                })
             },
             "hidden": {
-                "initial_value0": ("*",)
+                "initial_value0": ("*",),
+                "node_def": "NODE_DEFINITION",
             }
         }
 
-    RETURN_TYPES = tuple(["FLOW_CONTROL", "INT",] + ["*"] * (NUM_FLOW_SOCKETS-1))
-    RETURN_NAMES = tuple(["flow_control", "remaining"] + ["value%d" % i for i in range(1, NUM_FLOW_SOCKETS)])
+    RETURN_TYPES = tuple(["FLOW_CONTROL", "INT", "*"])
+    RETURN_NAMES = tuple(["flow_control", "remaining", "value1"])
     FUNCTION = "for_loop_open"
 
     CATEGORY = "InversionDemo Nodes/Flow"
 
-    def for_loop_open(self, remaining, **kwargs):
+    def for_loop_open(self, remaining, node_def, **kwargs):
+        num_inputs = len(node_def['output'])
         graph = GraphBuilder()
         if "initial_value0" in kwargs:
             remaining = kwargs["initial_value0"]
-        while_open = graph.node("WhileLoopOpen", condition=remaining, initial_value0=remaining, **{("initial_value%d" % i): kwargs.get("initial_value%d" % i, None) for i in range(1, NUM_FLOW_SOCKETS)})
-        outputs = [kwargs.get("initial_value%d" % i, None) for i in range(1, NUM_FLOW_SOCKETS)]
+        while_open = graph.node("WhileLoopOpen", condition=remaining, initial_value0=remaining, **{("initial_value%d" % i): kwargs.get("initial_value%d" % i, None) for i in range(1, num_inputs)})
+        outputs = [kwargs.get("initial_value%d" % i, None) for i in range(1, num_inputs)]
         return {
             "result": tuple(["stub", remaining] + outputs),
             "expand": graph.finalize(),
         }
 
 @VariantSupport()
-class ForLoopClose:
+class ForLoopClose(VariadicFlowNode):
     def __init__(self):
         pass
+
+    @classmethod
+    def resolve_dynamic_types(cls, input_types, output_types, entangled_types):
+        return cls.resolve_dynamic_flow_types(
+            [],
+            [],
+            1,
+            input_types,
+            output_types,
+            entangled_types,
+        )
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "flow_control": ("FLOW_CONTROL", {"rawLink": True}),
+                "flow_control": ("FLOW_CONTROL", {
+                    "forceInput": True,
+                    "rawLink": True,
+                    "entangleTypes": True,
+                }),
             },
             "optional": {
                 "initial_value%d" % i: ("*",{"rawLink": True}) for i in range(1, NUM_FLOW_SOCKETS)
             },
+            "hidden": {
+                "node_def": "NODE_DEFINITION",
+            }
         }
 
     RETURN_TYPES = tuple(["*"] * (NUM_FLOW_SOCKETS-1))
@@ -291,20 +334,21 @@ class ForLoopClose:
 
     CATEGORY = "InversionDemo Nodes/Flow"
 
-    def for_loop_close(self, flow_control, **kwargs):
+    def for_loop_close(self, flow_control, node_def, **kwargs):
+        num_inputs = len(node_def['output'])
         graph = GraphBuilder()
         while_open = flow_control[0]
         # TODO - Requires WAS-ns. Will definitely want to solve before merging
         sub = graph.node("IntMathOperation", operation="subtract", a=[while_open,1], b=1)
         cond = graph.node("ToBoolNode", value=sub.out(0))
-        input_values = {("initial_value%d" % i): kwargs.get("initial_value%d" % i, None) for i in range(1, NUM_FLOW_SOCKETS)}
+        input_values = {("initial_value%d" % i): kwargs.get("initial_value%d" % i, None) for i in range(1, num_inputs)}
         while_close = graph.node("WhileLoopClose",
                 flow_control=flow_control,
                 condition=cond.out(0),
                 initial_value0=sub.out(0),
                 **input_values)
         return {
-            "result": tuple([while_close.out(i) for i in range(1, NUM_FLOW_SOCKETS)]),
+            "result": tuple([while_close.out(i) for i in range(1, num_inputs)]),
             "expand": graph.finalize(),
         }
 
@@ -357,8 +401,7 @@ class DebugPrint:
         print("[%s]: %s" % (label, self.debugtype(value)))
         return (value,)
 
-NUM_LIST_SOCKETS = 10
-@VariantSupport()
+@TemplateTypeSupport()
 class MakeListNode:
     def __init__(self):
         pass
@@ -366,23 +409,25 @@ class MakeListNode:
     @classmethod
     def INPUT_TYPES(cls):
         return {
-            "required": {
-                "value1": ("*",),
-            },
+            "required": {},
             "optional": {
-                "value%d" % i: ("*",) for i in range(1, NUM_LIST_SOCKETS)
+                "value#COUNT": ("<T>", {}),
+            },
+            "hidden": {
+                "node_def": "NODE_DEFINITION",
             },
         }
 
-    RETURN_TYPES = ("*",)
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("list",)
     FUNCTION = "make_list"
     OUTPUT_IS_LIST = (True,)
 
     CATEGORY = "InversionDemo Nodes/Lists"
 
-    def make_list(self, **kwargs):
+    def make_list(self, node_def, **kwargs):
         result = []
-        for i in range(NUM_LIST_SOCKETS):
+        for i in range(node_def.get("dynamic_counts", {}).get("COUNT", 0)):
             if "value%d" % i in kwargs:
                 result.append(kwargs["value%d" % i])
         return (result,)
