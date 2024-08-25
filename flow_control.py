@@ -1,63 +1,129 @@
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from comfy_execution.graph import ExecutionBlocker
-from .tools import VariantSupport
+from .tools import VariantSupport, type_intersection
+from typing import Dict, List
+import re
 
-NUM_FLOW_SOCKETS = 5
+class VariadicFlowNode:
+    @classmethod
+    def INPUT_TYPES(cls):
+        raise NotImplementedError("INPUT_TYPES must be implemented by subclasses")
+
+    @classmethod
+    def get_max_index(cls, strs):
+        current_max = -1
+        for s in strs:
+            # Find the first string of digits using a regex
+            match = re.search(r"\d+", s)
+            if match is not None:
+                current_max = max(current_max, int(match.group(0)))
+        return current_max
+
+    @classmethod
+    def resolve_dynamic_flow_types(
+        cls,
+        node_id: str,
+        input_types: Dict[str, str],
+        output_types: Dict[str, List[str]],
+        entangled_types: Dict[str, Dict],
+        has_flow_output
+    ):
+        num_entries = max(cls.get_max_index(input_types.keys()), cls.get_max_index(output_types.keys()))
+        for linked in entangled_types.get("flow_control", []):
+            num_entries = max(
+                num_entries,
+                cls.get_max_index(linked['input_types']),
+                cls.get_max_index(linked['output_types'])
+            )
+        num_sockets = num_entries + 2
+        inputs = cls.INPUT_TYPES()
+        outputs = ["FLOW_CONTROL"] if has_flow_output else []
+        output_names = ["FLOW_CONTROL"] if has_flow_output else []
+        for i in range(num_sockets):
+            socket_type = "*"
+            input_name = f"initial_value{i}"
+            output_name = f"value{i}"
+            socket_type = type_intersection(socket_type, input_types.get(input_name, "*"))
+            for output_type in output_types.get(output_name, []):
+                socket_type = type_intersection(socket_type, output_type)
+            for linked in entangled_types.get("flow_control", []):
+                socket_type = type_intersection(socket_type, linked['input_types'].get(input_name, "*"))
+                for output_type in linked['output_types'].get(output_name, []):
+                    socket_type = type_intersection(socket_type, output_type)
+            inputs["optional"]["initial_value%d" % i] = (socket_type, {
+                "forceInput": True,
+                "displayOrder": i,
+            })
+            outputs.append(socket_type)
+            output_names.append(output_name)
+        return {
+            "input": inputs,
+            "output": tuple(outputs),
+            "output_name": tuple(output_names)
+        }
+
+NUM_FLOW_SOCKETS = 2
 @VariantSupport()
-class WhileLoopOpen:
-    def __init__(self):
-        pass
+class WhileLoopOpen(VariadicFlowNode):
+    @classmethod
+    def resolve_dynamic_types(cls, node_id, input_types, output_types, entangled_types):
+        return cls.resolve_dynamic_flow_types(node_id, input_types, output_types, entangled_types, True)
 
     @classmethod
     def INPUT_TYPES(cls):
-        inputs = {
+        return {
             "required": {
                 "condition": ("BOOLEAN", {"default": True}),
             },
             "optional": {
+                "initial_value0": ("*",{"forceInput": True}),
             },
         }
-        for i in range(NUM_FLOW_SOCKETS):
-            inputs["optional"]["initial_value%d" % i] = ("*",)
-        return inputs
 
-    RETURN_TYPES = tuple(["FLOW_CONTROL"] + ["*"] * NUM_FLOW_SOCKETS)
-    RETURN_NAMES = tuple(["FLOW_CONTROL"] + ["value%d" % i for i in range(NUM_FLOW_SOCKETS)])
+    RETURN_TYPES = ("FLOW_CONTROL", "*")
+    RETURN_NAMES = ("FLOW_CONTROL", "value0")
     FUNCTION = "while_loop_open"
 
     CATEGORY = "InversionDemo Nodes/Flow"
 
     def while_loop_open(self, condition, **kwargs):
+        num_inputs = self.get_max_index(kwargs.keys())
         values = []
-        for i in range(NUM_FLOW_SOCKETS):
+        for i in range(num_inputs):
             values.append(kwargs.get("initial_value%d" % i, None))
         return tuple(["stub"] + values)
 
 @VariantSupport()
-class WhileLoopClose:
-    def __init__(self):
-        pass
+class WhileLoopClose(VariadicFlowNode):
+    @classmethod
+    def resolve_dynamic_types(cls, node_id, input_types, output_types, entangled_types):
+        return cls.resolve_dynamic_flow_types(node_id, input_types, output_types, entangled_types, False)
 
     @classmethod
     def INPUT_TYPES(cls):
-        inputs = {
+        return {
             "required": {
-                "flow_control": ("FLOW_CONTROL", {"rawLink": True}),
-                "condition": ("BOOLEAN", {"forceInput": True}),
+                "flow_control": ("FLOW_CONTROL", {
+                    "rawLink": True,
+                    "entangleTypes": True,
+                    "displayOrder": -1,
+                }),
+                "condition": ("BOOLEAN", {
+                    "forceInput": True,
+                    "displayOrder": 999999,
+                }),
             },
             "optional": {
+                "initial_value0": ("*",{"forceInput": True}),
             },
             "hidden": {
                 "dynprompt": "DYNPROMPT",
                 "unique_id": "UNIQUE_ID",
             }
         }
-        for i in range(NUM_FLOW_SOCKETS):
-            inputs["optional"]["initial_value%d" % i] = ("*",)
-        return inputs
 
-    RETURN_TYPES = tuple(["*"] * NUM_FLOW_SOCKETS)
-    RETURN_NAMES = tuple(["value%d" % i for i in range(NUM_FLOW_SOCKETS)])
+    RETURN_TYPES = ("*",)
+    RETURN_NAMES = ("value0",)
     FUNCTION = "while_loop_close"
 
     CATEGORY = "InversionDemo Nodes/Flow"
@@ -84,12 +150,15 @@ class WhileLoopClose:
 
 
     def while_loop_close(self, flow_control, condition, dynprompt=None, unique_id=None, **kwargs):
+        num_inputs = self.get_max_index(kwargs.keys())
         if not condition:
             # We're done with the loop
             values = []
-            for i in range(NUM_FLOW_SOCKETS):
+            for i in range(num_inputs):
                 values.append(kwargs.get("initial_value%d" % i, None))
             return tuple(values)
+
+        assert dynprompt is not None
 
         # We want to loop
         this_node = dynprompt.get_node(unique_id)
@@ -120,11 +189,11 @@ class WhileLoopClose:
                 else:
                     node.set_input(k, v)
         new_open = graph.lookup_node(open_node)
-        for i in range(NUM_FLOW_SOCKETS):
+        for i in range(num_inputs):
             key = "initial_value%d" % i
             new_open.set_input(key, kwargs.get(key, None))
         my_clone = graph.lookup_node("Recurse" )
-        result = map(lambda x: my_clone.out(x), range(NUM_FLOW_SOCKETS))
+        result = map(lambda x: my_clone.out(x), range(num_inputs))
         return {
             "result": tuple(result),
             "expand": graph.finalize(),

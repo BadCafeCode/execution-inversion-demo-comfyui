@@ -51,3 +51,16 @@ def VariantSupport():
         return cls
     return decorator
 
+def type_intersection(a: str, b: str) -> str:
+    if a == "*":
+        return b
+    if b == "*":
+        return a
+    if a == b:
+        return a
+    aset = set(a.split(','))
+    bset = set(b.split(','))
+    intersection = aset.intersection(bset)
+    if len(intersection) == 0:
+        return "*"
+    return ",".join(intersection)
