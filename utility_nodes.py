@@ -232,11 +232,22 @@ class IntMathOperation:
             return (a ** b,)
 
 
-from .flow_control import NUM_FLOW_SOCKETS
+from .flow_control import NUM_FLOW_SOCKETS, VariadicFlowNode
 @VariantSupport()
-class ForLoopOpen:
+class ForLoopOpen(VariadicFlowNode):
     def __init__(self):
         pass
+
+    @classmethod
+    def resolve_dynamic_types(cls, input_types, output_types, entangled_types):
+        return cls.resolve_dynamic_flow_types(
+            ['FLOW_CONTROL', 'INT'],
+            ['flow_control', 'remaining'],
+            1,
+            input_types,
+            output_types,
+            entangled_types,
+        )
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -245,34 +256,50 @@ class ForLoopOpen:
                 "remaining": ("INT", {"default": 1, "min": 0, "max": 100000, "step": 1}),
             },
             "optional": {
-                "initial_value%d" % i: ("*",) for i in range(1, NUM_FLOW_SOCKETS)
+                "initial_value1": ("*",{
+                    "forceInput": True,
+                    "rawLink": True,
+                })
             },
             "hidden": {
-                "initial_value0": ("*",)
+                "initial_value0": ("*",),
+                "node_def": "NODE_DEFINITION",
             }
         }
 
-    RETURN_TYPES = tuple(["FLOW_CONTROL", "INT",] + ["*"] * (NUM_FLOW_SOCKETS-1))
-    RETURN_NAMES = tuple(["flow_control", "remaining"] + ["value%d" % i for i in range(1, NUM_FLOW_SOCKETS)])
+    RETURN_TYPES = tuple(["FLOW_CONTROL", "INT", "*"])
+    RETURN_NAMES = tuple(["flow_control", "remaining", "value1"])
     FUNCTION = "for_loop_open"
 
     CATEGORY = "InversionDemo Nodes/Flow"
 
-    def for_loop_open(self, remaining, **kwargs):
+    def for_loop_open(self, remaining, node_def, **kwargs):
+        num_inputs = len(node_def['output'])
         graph = GraphBuilder()
         if "initial_value0" in kwargs:
             remaining = kwargs["initial_value0"]
-        while_open = graph.node("WhileLoopOpen", condition=remaining, initial_value0=remaining, **{("initial_value%d" % i): kwargs.get("initial_value%d" % i, None) for i in range(1, NUM_FLOW_SOCKETS)})
-        outputs = [kwargs.get("initial_value%d" % i, None) for i in range(1, NUM_FLOW_SOCKETS)]
+        while_open = graph.node("WhileLoopOpen", condition=remaining, initial_value0=remaining, **{("initial_value%d" % i): kwargs.get("initial_value%d" % i, None) for i in range(1, num_inputs)})
+        outputs = [kwargs.get("initial_value%d" % i, None) for i in range(1, num_inputs)]
         return {
             "result": tuple(["stub", remaining] + outputs),
             "expand": graph.finalize(),
         }
 
 @VariantSupport()
-class ForLoopClose:
+class ForLoopClose(VariadicFlowNode):
     def __init__(self):
         pass
+
+    @classmethod
+    def resolve_dynamic_types(cls, input_types, output_types, entangled_types):
+        return cls.resolve_dynamic_flow_types(
+            [],
+            [],
+            1,
+            input_types,
+            output_types,
+            entangled_types,
+        )
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -283,6 +310,9 @@ class ForLoopClose:
             "optional": {
                 "initial_value%d" % i: ("*",{"rawLink": True}) for i in range(1, NUM_FLOW_SOCKETS)
             },
+            "hidden": {
+                "node_def": "NODE_DEFINITION",
+            }
         }
 
     RETURN_TYPES = tuple(["*"] * (NUM_FLOW_SOCKETS-1))
@@ -291,20 +321,21 @@ class ForLoopClose:
 
     CATEGORY = "InversionDemo Nodes/Flow"
 
-    def for_loop_close(self, flow_control, **kwargs):
+    def for_loop_close(self, flow_control, node_def, **kwargs):
+        num_inputs = len(node_def['output'])
         graph = GraphBuilder()
         while_open = flow_control[0]
         # TODO - Requires WAS-ns. Will definitely want to solve before merging
         sub = graph.node("IntMathOperation", operation="subtract", a=[while_open,1], b=1)
         cond = graph.node("ToBoolNode", value=sub.out(0))
-        input_values = {("initial_value%d" % i): kwargs.get("initial_value%d" % i, None) for i in range(1, NUM_FLOW_SOCKETS)}
+        input_values = {("initial_value%d" % i): kwargs.get("initial_value%d" % i, None) for i in range(1, num_inputs)}
         while_close = graph.node("WhileLoopClose",
                 flow_control=flow_control,
                 condition=cond.out(0),
                 initial_value0=sub.out(0),
                 **input_values)
         return {
-            "result": tuple([while_close.out(i) for i in range(1, NUM_FLOW_SOCKETS)]),
+            "result": tuple([while_close.out(i) for i in range(1, num_inputs)]),
             "expand": graph.finalize(),
         }
 

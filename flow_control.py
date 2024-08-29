@@ -22,11 +22,12 @@ class VariadicFlowNode:
     @classmethod
     def resolve_dynamic_flow_types(
         cls,
-        node_id: str,
+        base_output_types: List[str],
+        base_output_names: List[str],
+        variadic_start_index: int,
         input_types: Dict[str, str],
         output_types: Dict[str, List[str]],
         entangled_types: Dict[str, Dict],
-        has_flow_output
     ):
         num_entries = max(cls.get_max_index(input_types.keys()), cls.get_max_index(output_types.keys()))
         for linked in entangled_types.get("flow_control", []):
@@ -37,9 +38,9 @@ class VariadicFlowNode:
             )
         num_sockets = num_entries + 2
         inputs = cls.INPUT_TYPES()
-        outputs = ["FLOW_CONTROL"] if has_flow_output else []
-        output_names = ["FLOW_CONTROL"] if has_flow_output else []
-        for i in range(num_sockets):
+        outputs = base_output_types
+        output_names = base_output_names
+        for i in range(variadic_start_index, num_sockets):
             socket_type = "*"
             input_name = f"initial_value{i}"
             output_name = f"value{i}"
@@ -53,6 +54,7 @@ class VariadicFlowNode:
             inputs["optional"]["initial_value%d" % i] = (socket_type, {
                 "forceInput": True,
                 "displayOrder": i,
+                "rawLink": True,
             })
             outputs.append(socket_type)
             output_names.append(output_name)
@@ -66,8 +68,15 @@ NUM_FLOW_SOCKETS = 2
 @VariantSupport()
 class WhileLoopOpen(VariadicFlowNode):
     @classmethod
-    def resolve_dynamic_types(cls, node_id, input_types, output_types, entangled_types):
-        return cls.resolve_dynamic_flow_types(node_id, input_types, output_types, entangled_types, True)
+    def resolve_dynamic_types(cls, input_types, output_types, entangled_types):
+        return cls.resolve_dynamic_flow_types(
+            ['FLOW_CONTROL'],
+            ['FLOW_CONTROL'],
+            0,
+            input_types,
+            output_types,
+            entangled_types,
+        )
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -78,6 +87,9 @@ class WhileLoopOpen(VariadicFlowNode):
             "optional": {
                 "initial_value0": ("*",{"forceInput": True}),
             },
+            "hidden": {
+                "node_def": "NODE_DEFINITION",
+            },
         }
 
     RETURN_TYPES = ("FLOW_CONTROL", "*")
@@ -86,8 +98,8 @@ class WhileLoopOpen(VariadicFlowNode):
 
     CATEGORY = "InversionDemo Nodes/Flow"
 
-    def while_loop_open(self, condition, **kwargs):
-        num_inputs = self.get_max_index(kwargs.keys())
+    def while_loop_open(self, condition, node_def=None, **kwargs):
+        num_inputs = len(node_def['output'])
         values = []
         for i in range(num_inputs):
             values.append(kwargs.get("initial_value%d" % i, None))
@@ -96,8 +108,15 @@ class WhileLoopOpen(VariadicFlowNode):
 @VariantSupport()
 class WhileLoopClose(VariadicFlowNode):
     @classmethod
-    def resolve_dynamic_types(cls, node_id, input_types, output_types, entangled_types):
-        return cls.resolve_dynamic_flow_types(node_id, input_types, output_types, entangled_types, False)
+    def resolve_dynamic_types(cls, input_types, output_types, entangled_types):
+        return cls.resolve_dynamic_flow_types(
+            [],
+            [],
+            0,
+            input_types,
+            output_types,
+            entangled_types,
+        )
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -114,11 +133,15 @@ class WhileLoopClose(VariadicFlowNode):
                 }),
             },
             "optional": {
-                "initial_value0": ("*",{"forceInput": True}),
+                "initial_value0": ("*",{
+                    "forceInput": True,
+                    "rawLink": True,
+                }),
             },
             "hidden": {
                 "dynprompt": "DYNPROMPT",
                 "unique_id": "UNIQUE_ID",
+                "node_def": "NODE_DEFINITION",
             }
         }
 
@@ -149,14 +172,18 @@ class WhileLoopClose(VariadicFlowNode):
                 self.collect_contained(child_id, upstream, contained)
 
 
-    def while_loop_close(self, flow_control, condition, dynprompt=None, unique_id=None, **kwargs):
-        num_inputs = self.get_max_index(kwargs.keys())
+    def while_loop_close(self, flow_control, condition, node_def=None, dynprompt=None, unique_id=None, **kwargs):
+        num_inputs = len(node_def['output'])
         if not condition:
             # We're done with the loop
             values = []
             for i in range(num_inputs):
                 values.append(kwargs.get("initial_value%d" % i, None))
-            return tuple(values)
+            return {
+                "result": tuple(values),
+                # We use 'expansion' just so we can resolve the rawLink inputs
+                "expand": GraphBuilder().finalize(),
+            }
 
         assert dynprompt is not None
 
