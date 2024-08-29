@@ -29,14 +29,14 @@ class VariadicFlowNode:
         output_types: Dict[str, List[str]],
         entangled_types: Dict[str, Dict],
     ):
-        num_entries = max(cls.get_max_index(input_types.keys()), cls.get_max_index(output_types.keys()))
+        num_entries = max(cls.get_max_index(input_types.keys()), cls.get_max_index(output_types.keys())) + 1
         for linked in entangled_types.get("flow_control", []):
             num_entries = max(
                 num_entries,
                 cls.get_max_index(linked['input_types']),
                 cls.get_max_index(linked['output_types'])
             )
-        num_sockets = num_entries + 2
+        num_sockets = num_entries + 1
         inputs = cls.INPUT_TYPES()
         outputs = base_output_types
         output_names = base_output_names
@@ -49,8 +49,6 @@ class VariadicFlowNode:
                 socket_type = type_intersection(socket_type, output_type)
             for linked in entangled_types.get("flow_control", []):
                 socket_type = type_intersection(socket_type, linked['input_types'].get(input_name, "*"))
-                for output_type in linked['output_types'].get(output_name, []):
-                    socket_type = type_intersection(socket_type, output_type)
             inputs["optional"]["initial_value%d" % i] = (socket_type, {
                 "forceInput": True,
                 "displayOrder": i,

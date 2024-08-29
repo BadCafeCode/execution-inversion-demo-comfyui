@@ -305,7 +305,10 @@ class ForLoopClose(VariadicFlowNode):
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "flow_control": ("FLOW_CONTROL", {"rawLink": True}),
+                "flow_control": ("FLOW_CONTROL", {
+                    "rawLink": True,
+                    "entangleTypes": True,
+                }),
             },
             "optional": {
                 "initial_value%d" % i: ("*",{"rawLink": True}) for i in range(1, NUM_FLOW_SOCKETS)
