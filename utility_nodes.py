@@ -1,8 +1,85 @@
 from comfy_execution.graph_utils import GraphBuilder
 import torch
-from .tools import VariantSupport
+from .tools import VariantSupport, type_intersection
+from typing import Optional, Tuple
+import re
 
-@VariantSupport()
+naked_template_regex = re.compile(r"^<(.+)>$")
+qualified_template_regex = re.compile(r"^(.+)<(.+)>$")
+accum_regex = re.compile(r"ACCUMULATION<(.+)>")
+
+empty_lookup = {}
+def template_to_type(template, key_lookup=empty_lookup):
+    templ_match = naked_template_regex.match(template)
+    if templ_match:
+        return key_lookup.get(templ_match.group(1), "*")
+    templ_match = qualified_template_regex.match(template)
+    if templ_match:
+        resolved = key_lookup.get(templ_match.group(2), "*")
+        return qualified_template_regex.sub(r"\1<%s>" % resolved, template)
+    return template
+
+def determine_template_value(template: str, actual_type: str) -> Tuple[Optional[str], Optional[str]]:
+    templ_match = naked_template_regex.match(template)
+    if templ_match:
+        return templ_match.group(1), actual_type
+    templ_match = qualified_template_regex.match(template)
+    actual_match = qualified_template_regex.match(actual_type)
+    if templ_match and actual_match and templ_match.group(1) == actual_match.group(1):
+        return templ_match.group(2), actual_match.group(2)
+
+    return None, None
+
+def TemplateTypeSupport():
+    def decorator(cls):
+        old_input_types = getattr(cls, "INPUT_TYPES")
+        def new_input_types(cls):
+            types = old_input_types()
+            for category in ["required", "optional"]:
+                if category not in types:
+                    continue
+                for key, value in types[category].items():
+                    types[category][key] = (template_to_type(value[0]),) + value[1:]
+            return types
+        setattr(cls, "INPUT_TYPES", classmethod(new_input_types))
+        old_outputs = getattr(cls, "RETURN_TYPES")
+        setattr(cls, "RETURN_TYPES", tuple(template_to_type(x) for x in old_outputs))
+
+        def resolve_dynamic_types(cls, input_types, output_types, entangled_types):
+            resolved = {}
+            inputs = old_input_types()
+            for category in ["required", "optional"]:
+                if category not in inputs:
+                    continue
+                for key, value in inputs[category].items():
+                    if key in input_types:
+                        tkey, tvalue = determine_template_value(value[0], input_types[key])
+                        if tkey is not None and tvalue is not None:
+                            resolved[tkey] = type_intersection(resolved.get(tkey, "*"), tvalue)
+            for i in range(len(old_outputs)):
+                output_name = cls.RETURN_NAMES[i]
+                if output_name in output_types:
+                    for output_type in output_types[output_name]:
+                        tkey, tvalue = determine_template_value(old_outputs[i], output_type)
+                        if tkey is not None and tvalue is not None:
+                            resolved[tkey] = type_intersection(resolved.get(tkey, "*"), tvalue)
+
+            for category in ["required", "optional"]:
+                if category not in inputs:
+                    continue
+                for key, value in inputs[category].items():
+                    inputs[category][key] = (template_to_type(value[0], resolved),) + value[1:]
+            outputs = (template_to_type(x, resolved) for x in old_outputs)
+            return {
+                "input": inputs,
+                "output": tuple(outputs),
+                "output_name": cls.RETURN_NAMES,
+            }
+        setattr(cls, "resolve_dynamic_types", classmethod(resolve_dynamic_types))
+        return cls
+    return decorator
+
+@TemplateTypeSupport()
 class AccumulateNode:
     def __init__(self):
         pass
@@ -11,14 +88,15 @@ class AccumulateNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "to_add": ("*",),
+                "to_add": ("<T>", {"forceInput": True}),
             },
             "optional": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {"forceInput": True}),
             },
         }
 
-    RETURN_TYPES = ("ACCUMULATION",)
+    RETURN_TYPES = ("ACCUMULATION<T>",)
+    RETURN_NAMES = ("accumulation",)
     FUNCTION = "accumulate"
 
     CATEGORY = "InversionDemo Nodes/Lists"
@@ -30,7 +108,7 @@ class AccumulateNode:
             value = accumulation["accum"] + [to_add]
         return ({"accum": value},)
 
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationHeadNode:
     def __init__(self):
         pass
@@ -39,11 +117,12 @@ class AccumulationHeadNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {"forceInput": True}),
             },
         }
 
-    RETURN_TYPES = ("ACCUMULATION", "*",)
+    RETURN_TYPES = ("ACCUMULATION<T>", "<T>",)
+    RETURN_NAMES = ("accumulation", "head")
     FUNCTION = "accumulation_head"
 
     CATEGORY = "InversionDemo Nodes/Lists"
@@ -55,7 +134,7 @@ class AccumulationHeadNode:
         else:
             return ({"accum": accum[1:]}, accum[0])
 
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationTailNode:
     def __init__(self):
         pass
@@ -64,11 +143,12 @@ class AccumulationTailNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {"forceInput": True}),
             },
         }
 
-    RETURN_TYPES = ("ACCUMULATION", "*",)
+    RETURN_TYPES = ("ACCUMULATION<T>", "<T>",)
+    RETURN_NAMES = ("accumulation", "tail")
     FUNCTION = "accumulation_tail"
 
     CATEGORY = "InversionDemo Nodes/Lists"
@@ -80,7 +160,7 @@ class AccumulationTailNode:
         else:
             return ({"accum": accum[:-1]}, accum[-1])
 
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationToListNode:
     def __init__(self):
         pass
@@ -89,11 +169,12 @@ class AccumulationToListNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {"forceInput": True}),
             },
         }
 
-    RETURN_TYPES = ("*",)
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("list",)
     OUTPUT_IS_LIST = (True,)
 
     FUNCTION = "accumulation_to_list"
@@ -103,7 +184,7 @@ class AccumulationToListNode:
     def accumulation_to_list(self, accumulation):
         return (accumulation["accum"],)
 
-@VariantSupport()
+@TemplateTypeSupport()
 class ListToAccumulationNode:
     def __init__(self):
         pass
@@ -112,11 +193,12 @@ class ListToAccumulationNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "list": ("*",),
+                "list": ("<T>", {"forceInput": True}),
             },
         }
 
-    RETURN_TYPES = ("ACCUMULATION",)
+    RETURN_TYPES = ("ACCUMULATION<T>",)
+    RETURN_NAMES = ("accumulation",)
     INPUT_IS_LIST = (True,)
 
     FUNCTION = "list_to_accumulation"
@@ -126,7 +208,7 @@ class ListToAccumulationNode:
     def list_to_accumulation(self, list):
         return ({"accum": list},)
 
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationGetLengthNode:
     def __init__(self):
         pass
@@ -135,11 +217,12 @@ class AccumulationGetLengthNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {"forceInput": True}),
             },
         }
 
     RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("length",)
 
     FUNCTION = "accumlength"
 
@@ -148,7 +231,7 @@ class AccumulationGetLengthNode:
     def accumlength(self, accumulation):
         return (len(accumulation['accum']),)
         
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationGetItemNode:
     def __init__(self):
         pass
@@ -157,12 +240,13 @@ class AccumulationGetItemNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {"forceInput": True}),
                 "index": ("INT", {"default":0, "step":1})
             },
         }
 
-    RETURN_TYPES = ("*",)
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("item",)
 
     FUNCTION = "get_item"
 
@@ -171,7 +255,7 @@ class AccumulationGetItemNode:
     def get_item(self, accumulation, index):
         return (accumulation['accum'][index],)
         
-@VariantSupport()
+@TemplateTypeSupport()
 class AccumulationSetItemNode:
     def __init__(self):
         pass
@@ -180,13 +264,14 @@ class AccumulationSetItemNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "accumulation": ("ACCUMULATION",),
+                "accumulation": ("ACCUMULATION<T>", {"forceInput": True}),
                 "index": ("INT", {"default":0, "step":1}),
-                "value": ("*",),
+                "value": ("<T>", {"forceInput": True}),
             },
         }
 
-    RETURN_TYPES = ("ACCUMULATION",)
+    RETURN_TYPES = ("ACCUMULATION<T>",)
+    RETURN_NAMES = ("accumulation",)
 
     FUNCTION = "set_item"
 
