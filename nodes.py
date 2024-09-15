@@ -1,7 +1,7 @@
 import re
 
 from comfy_execution.graph_utils import GraphBuilder
-from .tools import VariantSupport
+from .tools import VariantSupport, TemplateTypeSupport
 
 @VariantSupport()
 class InversionDemoAdvancedPromptNode:
@@ -89,7 +89,7 @@ class InversionDemoAdvancedPromptNode:
             "expand": graph.finalize(),
         }
 
-@VariantSupport()
+@TemplateTypeSupport()
 class InversionDemoLazySwitch:
     def __init__(self):
         pass
@@ -99,12 +99,13 @@ class InversionDemoLazySwitch:
         return {
             "required": {
                 "switch": ("BOOLEAN",),
-                "on_false": ("*", {"lazy": True}),
-                "on_true": ("*", {"lazy": True}),
+                "on_false": ("<T>", {"lazy": True, "forceInput": True}),
+                "on_true": ("<T>", {"lazy": True, "forceInput": True}),
             },
         }
 
-    RETURN_TYPES = ("*",)
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("result",)
     FUNCTION = "switch"
 
     CATEGORY = "InversionDemo Nodes/Logic"
@@ -119,37 +120,35 @@ class InversionDemoLazySwitch:
         value = on_true if switch else on_false
         return (value,)
 
-NUM_IF_ELSE_NODES = 10
-@VariantSupport()
+@TemplateTypeSupport()
 class InversionDemoLazyConditional:
     def __init__(self):
         pass
 
     @classmethod
     def INPUT_TYPES(cls):
-        args = {
-            "value1": ("*", {"lazy": True}),
-            "condition1": ("BOOLEAN", {"forceInput": True}),
-        }
-
-        for i in range(1,NUM_IF_ELSE_NODES):
-            args["value%d" % (i + 1)] = ("*", {"lazy": True})
-            args["condition%d" % (i + 1)] = ("BOOLEAN", {"lazy": True, "forceInput": True})
-
-        args["else"] = ("*", {"lazy": True})
-
         return {
             "required": {},
-            "optional": args,
+            "optional": {
+                "value#COUNT": ("<T>", {"lazy": True, "forceInput": True}),
+                "condition#COUNT": ("BOOLEAN", {"forceInput": True}),
+                "else": ("<T>", {"lazy": True, "displayOrder": 999999})
+            },
+            "hidden": {
+                "node_def": "NODE_DEFINITION",
+            },
         }
 
-    RETURN_TYPES = ("*",)
+
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("result",)
     FUNCTION = "conditional"
 
     CATEGORY = "InversionDemo Nodes/Logic"
 
-    def check_lazy_status(self, **kwargs):
-        for i in range(0,NUM_IF_ELSE_NODES):
+    def check_lazy_status(self, node_def, **kwargs):
+        num_slots = node_def.get("dynamic_counts", {}).get("COUNT", 0)
+        for i in range(0, num_slots):
             cond = "condition%d" % (i + 1)
             if cond not in kwargs:
                 return [cond]
@@ -163,8 +162,9 @@ class InversionDemoLazyConditional:
         if "else" not in kwargs:
             return ["else"]
 
-    def conditional(self, **kwargs):
-        for i in range(0,NUM_IF_ELSE_NODES):
+    def conditional(self, node_def, **kwargs):
+        num_slots = node_def.get("dynamic_counts", {}).get("COUNT", 0)
+        for i in range(0, num_slots):
             cond = "condition%d" % (i + 1)
             if cond not in kwargs:
                 return [cond]

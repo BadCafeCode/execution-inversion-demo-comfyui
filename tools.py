@@ -68,7 +68,8 @@ def type_intersection(a: str, b: str) -> str:
 
 naked_template_regex = re.compile(r"^<(.+)>$")
 qualified_template_regex = re.compile(r"^(.+)<(.+)>$")
-accum_regex = re.compile(r"ACCUMULATION<(.+)>")
+variadic_template_regex = re.compile(r"([^<]+)#([^>]+)")
+variadic_suffix_regex =   re.compile(r"([^<]+)(\d+)")
 
 empty_lookup = {}
 def template_to_type(template, key_lookup=empty_lookup):
@@ -81,6 +82,7 @@ def template_to_type(template, key_lookup=empty_lookup):
         return qualified_template_regex.sub(r"\1<%s>" % resolved, template)
     return template
 
+# Returns the 'key' and 'value' of the template (if any)
 def determine_template_value(template: str, actual_type: str) -> Tuple[Optional[str], Optional[str]]:
     templ_match = naked_template_regex.match(template)
     if templ_match:
@@ -89,31 +91,85 @@ def determine_template_value(template: str, actual_type: str) -> Tuple[Optional[
     actual_match = qualified_template_regex.match(actual_type)
     if templ_match and actual_match and templ_match.group(1) == actual_match.group(1):
         return templ_match.group(2), actual_match.group(2)
+    return None, None
 
+def determine_variadic_group(template: str) -> Tuple[Optional[str], Optional[str]]:
+    variadic_match = variadic_template_regex.match(template)
+    if variadic_match:
+        return variadic_match.group(1), variadic_match.group(2)
+    return None, None
+
+def replace_variadic_suffix(template: str, index: int) -> str:
+    return variadic_template_regex.sub(lambda match: match.group(1) + str(index), template)
+
+def determine_variadic_suffix(template: str) -> Tuple[Optional[str], Optional[int]]:
+    variadic_match = variadic_suffix_regex.match(template)
+    if variadic_match:
+        return variadic_match.group(1), int(variadic_match.group(2))
     return None, None
 
 def TemplateTypeSupport():
     def decorator(cls):
         old_input_types = getattr(cls, "INPUT_TYPES")
         def new_input_types(cls):
-            types = old_input_types()
+            old_types = old_input_types()
+            new_types = {
+                "required": {},
+                "optional": {},
+                "hidden": old_types.get("hidden", {}),
+            }
             for category in ["required", "optional"]:
-                if category not in types:
+                if category not in old_types:
                     continue
-                for key, value in types[category].items():
-                    types[category][key] = (template_to_type(value[0]),) + value[1:]
-            return types
+                for key, value in old_types[category].items():
+                    new_types[category][replace_variadic_suffix(key, 1)] = (template_to_type(value[0]),) + value[1:]
+            return new_types
         setattr(cls, "INPUT_TYPES", classmethod(new_input_types))
         old_outputs = getattr(cls, "RETURN_TYPES")
         setattr(cls, "RETURN_TYPES", tuple(template_to_type(x) for x in old_outputs))
 
         def resolve_dynamic_types(cls, input_types, output_types, entangled_types):
-            resolved = {}
-            inputs = old_input_types()
+            original_inputs = old_input_types()
+
+            # Step 1 - Find all variadic groups and determine their maximum used index
+            variadic_group_map = {}
+            max_group_index = {}
             for category in ["required", "optional"]:
-                if category not in inputs:
-                    continue
-                for key, value in inputs[category].items():
+                for key, value in original_inputs.get(category, {}).items():
+                    root, group = determine_variadic_group(key)
+                    if root is not None and group is not None:
+                        variadic_group_map[root] = group
+            for type_map in [input_types, output_types]:
+                for key in type_map.keys():
+                    root, index = determine_variadic_suffix(key)
+                    if root is not None and index is not None:
+                        if root in variadic_group_map:
+                            group = variadic_group_map[root]
+                            max_group_index[group] = max(max_group_index.get(group, 0), index)
+
+            # Step 2 - Create variadic arguments
+            variadic_inputs = {
+                "required": {},
+                "optional": {},
+            }
+            for category in ["required", "optional"]:
+                for key, value in original_inputs.get(category, {}).items():
+                    root, group = determine_variadic_group(key)
+                    if root is None or group is None:
+                        # Copy it over as-is
+                        variadic_inputs[category][key] = value
+                    else:
+                        for i in range(1, max_group_index.get(group, 0) + 2):
+                            # Also replace any variadic suffixes in the type (for use with templates)
+                            input_type = value[0]
+                            if isinstance(input_type, str):
+                                input_type = replace_variadic_suffix(input_type, i)
+                            variadic_inputs[category][replace_variadic_suffix(key, i)] = (input_type,value[1])
+
+            # Step 3 - Resolve template arguments
+            resolved = {}
+            for category in ["required", "optional"]:
+                for key, value in variadic_inputs[category].items():
                     if key in input_types:
                         tkey, tvalue = determine_template_value(value[0], input_types[key])
                         if tkey is not None and tvalue is not None:
@@ -126,16 +182,21 @@ def TemplateTypeSupport():
                         if tkey is not None and tvalue is not None:
                             resolved[tkey] = type_intersection(resolved.get(tkey, "*"), tvalue)
 
+            # Step 4 - Replace templates with resolved types
+            final_inputs = {
+                "required": {},
+                "optional": {},
+                "hidden": original_inputs.get("hidden", {}),
+            }
             for category in ["required", "optional"]:
-                if category not in inputs:
-                    continue
-                for key, value in inputs[category].items():
-                    inputs[category][key] = (template_to_type(value[0], resolved),) + value[1:]
+                for key, value in variadic_inputs[category].items():
+                    final_inputs[category][key] = (template_to_type(value[0], resolved),) + value[1:]
             outputs = (template_to_type(x, resolved) for x in old_outputs)
             return {
-                "input": inputs,
+                "input": final_inputs,
                 "output": tuple(outputs),
                 "output_name": cls.RETURN_NAMES,
+                "dynamic_counts": max_group_index,
             }
         setattr(cls, "resolve_dynamic_types", classmethod(resolve_dynamic_types))
         return cls
