@@ -175,7 +175,7 @@ class InversionDemoLazyConditional:
         return (kwargs.get("else", None),)
     
     
-@VariantSupport()
+@TemplateTypeSupport()
 class InversionDemoLazyIndexSwitch:
     def __init__(self):
         pass
@@ -184,23 +184,15 @@ class InversionDemoLazyIndexSwitch:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "index": ("INT", {"default": 0, "min": 0, "max": 9, "step": 1}),
-                "value0": ("*", {"lazy": True}),
+                "index": ("INT", {"default": 0, "min": 0, "max": 99999, "step": 1}),
             },
             "optional": {
-                "value1": ("*", {"lazy": True}),
-                "value2": ("*", {"lazy": True}),
-                "value3": ("*", {"lazy": True}),
-                "value4": ("*", {"lazy": True}),
-                "value5": ("*", {"lazy": True}),
-                "value6": ("*", {"lazy": True}),
-                "value7": ("*", {"lazy": True}),
-                "value8": ("*", {"lazy": True}),
-                "value9": ("*", {"lazy": True}),
+                "value#COUNT": ("<T>", {"lazy": True, "forceInput": True}),
             }
         }
 
-    RETURN_TYPES = ("*",)
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("result",)
     FUNCTION = "index_switch"
 
     CATEGORY = "InversionDemo Nodes/Logic"
@@ -214,7 +206,6 @@ class InversionDemoLazyIndexSwitch:
         key = "value%d" % index
         return (kwargs[key],)
 
-@VariantSupport()
 class InversionDemoLazyMixImages:
     def __init__(self):
         pass
