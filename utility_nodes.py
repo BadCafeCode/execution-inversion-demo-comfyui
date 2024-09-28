@@ -296,7 +296,7 @@ class ForLoopClose:
         while_open = flow_control[0]
         # TODO - Requires WAS-ns. Will definitely want to solve before merging
         sub = graph.node("IntMathOperation", operation="subtract", a=[while_open,1], b=1)
-        cond = graph.node("ToBoolNode", value=sub.out(0))
+        cond = graph.node("IntConditions", a=sub.out(0), b=0, operation=">")
         input_values = {("initial_value%d" % i): kwargs.get("initial_value%d" % i, None) for i in range(1, NUM_FLOW_SOCKETS)}
         while_close = graph.node("WhileLoopClose",
                 flow_control=flow_control,
