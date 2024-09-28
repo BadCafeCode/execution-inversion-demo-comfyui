@@ -117,7 +117,7 @@ class ListToAccumulationNode:
         }
 
     RETURN_TYPES = ("ACCUMULATION",)
-    INPUT_IS_LIST = (True,)
+    INPUT_IS_LIST = True
 
     FUNCTION = "list_to_accumulation"
 
