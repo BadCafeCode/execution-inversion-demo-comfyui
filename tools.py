@@ -33,8 +33,7 @@ def VariantSupport():
             # Reflection is used to determine what the function signature is, so we can't just change the function signature
             raise NotImplementedError("VariantSupport does not support VALIDATE_INPUTS yet")
         else:
-            def validate_inputs(input_types):
-                inputs = cls.INPUT_TYPES()
+            def validate_individual(input_types, inputs):
                 for key, value in input_types.items():
                     if isinstance(value, SmartType):
                         continue
@@ -47,6 +46,14 @@ def VariantSupport():
                     if expected_type is not None and MakeSmartType(value) != expected_type:
                         return f"Invalid type of {key}: {value} (expected {expected_type})"
                 return True
+            def validate_inputs(input_types):
+                inputs = cls.INPUT_TYPES()
+                if isinstance(input_types, list):
+                    for input_type in input_types:
+                        return validate_individual(input_type, inputs)
+                else:
+                    return validate_individual(input_types, inputs)
+                
             setattr(cls, "VALIDATE_INPUTS", validate_inputs)
         return cls
     return decorator
