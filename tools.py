@@ -50,7 +50,10 @@ def VariantSupport():
                 inputs = cls.INPUT_TYPES()
                 if isinstance(input_types, list):
                     for input_type in input_types:
-                        return validate_individual(input_type, inputs)
+                        responce = validate_individual(input_type, inputs)
+                        if isinstance(responce, str):
+                            return responce
+                    return True
                 else:
                     return validate_individual(input_types, inputs)
                 
