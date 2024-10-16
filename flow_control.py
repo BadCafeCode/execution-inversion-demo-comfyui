@@ -1,6 +1,7 @@
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from comfy_execution.graph import ExecutionBlocker
-from .tools import VariantSupport, type_intersection
+from .tools import VariantSupport
+from comfy_execution.node_utils import type_intersection
 from typing import Dict, List
 import re
 

@@ -1,7 +1,8 @@
 import re
 
 from comfy_execution.graph_utils import GraphBuilder
-from .tools import VariantSupport, TemplateTypeSupport
+from .tools import VariantSupport
+from comfy_execution.node_utils import TemplateTypeSupport
 
 @VariantSupport()
 class InversionDemoAdvancedPromptNode:

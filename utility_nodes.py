@@ -1,6 +1,7 @@
 from comfy_execution.graph_utils import GraphBuilder
 import torch
-from .tools import VariantSupport, TemplateTypeSupport
+from .tools import VariantSupport
+from comfy_execution.node_utils import TemplateTypeSupport
 
 @TemplateTypeSupport()
 class AccumulateNode:
