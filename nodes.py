@@ -132,7 +132,7 @@ class InversionDemoLazyConditional:
             "optional": {
                 "value#COUNT": ("<T>", {"lazy": True, "forceInput": True}),
                 "condition#COUNT": ("BOOLEAN", {"forceInput": True}),
-                "else": ("<T>", {"lazy": True, "displayOrder": 999999})
+                "else": ("<T>", {"lazy": True, "forceInput": True, "displayOrder": 999999})
             },
             "hidden": {
                 "node_def": "NODE_DEFINITION",

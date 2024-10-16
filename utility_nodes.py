@@ -399,8 +399,7 @@ class DebugPrint:
         print("[%s]: %s" % (label, self.debugtype(value)))
         return (value,)
 
-NUM_LIST_SOCKETS = 10
-@VariantSupport()
+@TemplateTypeSupport()
 class MakeListNode:
     def __init__(self):
         pass
@@ -408,23 +407,25 @@ class MakeListNode:
     @classmethod
     def INPUT_TYPES(cls):
         return {
-            "required": {
-                "value1": ("*",),
-            },
+            "required": {},
             "optional": {
-                "value%d" % i: ("*",) for i in range(1, NUM_LIST_SOCKETS)
+                "value#COUNT": ("<T>", {"forceInput": True}),
+            },
+            "hidden": {
+                "node_def": "NODE_DEFINITION",
             },
         }
 
-    RETURN_TYPES = ("*",)
+    RETURN_TYPES = ("<T>",)
+    RETURN_NAMES = ("list",)
     FUNCTION = "make_list"
     OUTPUT_IS_LIST = (True,)
 
     CATEGORY = "InversionDemo Nodes/Lists"
 
-    def make_list(self, **kwargs):
+    def make_list(self, node_def, **kwargs):
         result = []
-        for i in range(NUM_LIST_SOCKETS):
+        for i in range(node_def.get("dynamic_counts", {}).get("COUNT", 0)):
             if "value%d" % i in kwargs:
                 result.append(kwargs["value%d" % i])
         return (result,)
