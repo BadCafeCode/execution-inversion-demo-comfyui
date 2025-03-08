@@ -48,14 +48,16 @@ def VariantSupport():
                 return True
             def validate_inputs(input_types):
                 inputs = cls.INPUT_TYPES()
-                if isinstance(input_types, list):
-                    for input_type in input_types:
-                        responce = validate_individual(input_type, inputs)
-                        if isinstance(responce, str):
-                            return responce
-                    return True
-                else:
+
+                if not isinstance(input_types, list):
                     return validate_individual(input_types, inputs)
+
+                for input_type in input_types:
+                    response = validate_individual(input_type, inputs)
+                    if isinstance(response, str):
+                        return response
+
+                return True
                 
             setattr(cls, "VALIDATE_INPUTS", validate_inputs)
         return cls
